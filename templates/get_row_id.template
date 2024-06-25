@@ -1,0 +1,11 @@
+DECLARE seq_value int64;
+
+set seq_value = (SELECT seq_value FROM `${dataset}.sequences` WHERE seq_name = sequence_name);
+
+IF seq_value IS NULL THEN
+  INSERT INTO `${dataset}.sequences` (seq_name, seq_value) VALUES (sequence_name, 1);
+ELSE
+  UPDATE `${dataset}.sequences` SET seq_value = seq_value + 1 WHERE seq_name = sequence_name;
+END IF;
+
+SELECT seq_value FROM `${dataset}.sequences` WHERE seq_name = sequence_name;

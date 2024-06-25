@@ -1,0 +1,218 @@
+name: 'Terraform'
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    
+permissions: write-all
+
+jobs:
+  terraform:
+    env:
+        TF_CLOUD_ORGANIZATION: ${{ vars.TF_ORGANIZATION }}
+        TF_API_TOKEN: ${{ secrets.TFE_TOKEN }}
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Create release branch if it doesn't exist
+      continue-on-error: true
+      run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config pull.rebase true
+          resp=`git ls-remote --heads origin release | wc -m | sed 's/ //g'`
+          if [ $resp -gt 0 ]; then
+            git push origin --delete release
+          fi
+
+    - name: Create Release branch
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+          branch: release # The branch the action should deploy to.
+          folder: . # The folder the action should deploy.
+
+    - name: Checkout Release branch
+      uses: actions/checkout@v3
+      with:
+          ref: release
+          path: release
+
+    - name: Get next version
+      uses: reecetech/version-increment@2023.9.3
+      id: version
+      with:
+          scheme: calver
+          increment: patch
+
+    - name: Replace JS File Contents
+      run: |
+        cd release/scripts
+        sed -e '/JS_CONTENTS/{r schema_builder.js' -e 'd;}' build_graphql_schema.sh > build_graphql_schema.sh.new
+        rm -rf build_graphql_schema.sh
+        mv build_graphql_schema.sh.new build_graphql_schema.sh
+        chmod 777 build_graphql_schema.sh
+
+    - name: Replace PKG File Contents
+      run: |
+          cd release/scripts
+          sed -e '/PKG_JSON_CONTENTS/{r package.json' -e 'd;}' build_graphql_schema.sh > build_graphql_schema.sh.new
+          rm -rf build_graphql_schema.sh
+          mv build_graphql_schema.sh.new build_graphql_schema.sh
+          chmod 777 build_graphql_schema.sh
+
+    - name: Replace graphql File Contents
+      run: |
+          cd release/scripts
+          CONTENTS=""
+          LIST=$(find . -name '*.graphql')
+          for f in $LIST; do
+            FILENAME=$(echo "$f" | rev | cut -d "/" -f1 | rev)
+            CONTENTS="$CONTENTS""cat $FILENAME <<EOF\n" >> CONTENTS
+            CONTENTS="$CONTENTS$(cat $f)\n" >> CONTENTS
+            CONTENTS="$CONTENTS""EOF\n" >> CONTENTS
+          done
+          echo -e $CONTENTS > graphql_contents
+          sed -e '/GRAPHQL_CONTENTS/{r graphql_contents' -e 'd;}' build_graphql_schema.sh > build_graphql_schema.sh.new
+          rm -rf build_graphql_schema.sh
+          mv build_graphql_schema.sh.new build_graphql_schema.sh
+          chmod 777 build_graphql_schema.sh
+
+    - name: Commit
+      run: |
+        cd release
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+        git add .
+        git commit -m "Release ${{ steps.version.outputs.version }}"
+        git push
+
+    - name: Create release
+      uses: "actions/github-script@v6"
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+      with:
+        github-token: "${{ github.token }}"
+        script: |
+            try {
+              const response = await github.rest.repos.createRelease({
+                draft: false,
+                generate_release_notes: true,
+                name: process.env.VERSION,
+                owner: context.repo.owner,
+                prerelease: false,
+                repo: context.repo.repo,
+                tag_name: process.env.VERSION,
+                target_commitish: 'release'
+              });
+              core.exportVariable('RELEASE_ID', response.data.id);
+              core.exportVariable('RELEASE_UPLOAD_URL', response.data.upload_url);
+            } catch (error) {
+              core.setFailed(error.message);
+            }
+
+    - name: Create workspace
+      id: create_workspace
+      run: |
+        cat > payload.json <<EOF
+        {
+            "data": {
+            "attributes": {
+            "name": "${{ github.event.repository.name }}",
+              "auto-apply": "true"
+              },
+              "type": "workspaces"
+              }
+            }
+        EOF
+            curl \
+              --header "Authorization: Bearer ${{ secrets.TFE_TOKEN }}" \
+              --header "Content-Type: application/vnd.api+json" \
+              --request POST \
+              --data @payload.json \
+              --output output.txt \
+              https://app.terraform.io/api/v2/organizations/${{ vars.TF_ORGANIZATION }}/workspaces
+              cat output.txt
+            echo "workspace_id=$(cat output.txt | jq -r '.[].id')" >> $GITHUB_OUTPUT
+
+    - name: Create workspace variables
+      run: |
+                cat > payload.json <<EOF
+                {
+                  "data": {
+                    "type":"vars",
+                    "attributes": {
+                      "key":"project_name",
+                      "value":"${{ github.event.repository.name }}",
+                      "description":"project name",
+                      "category":"terraform",
+                      "hcl":false,
+                      "sensitive":false
+                    },
+                    "relationships": {
+                      "workspace": {
+                        "data": {
+                          "id":"${{ steps.create_workspace.outputs.workspace_id }}",
+                          "type":"workspaces"
+                        }
+                      }
+                    }
+                  }
+                }
+                EOF
+                curl \
+                --header "Authorization: Bearer ${{ secrets.TFE_TOKEN }}" \
+                --header "Content-Type: application/vnd.api+json" \
+                --request POST \
+                --data @payload.json \
+                https://app.terraform.io/api/v2/vars
+    
+                cat > payload.json <<EOF
+                {
+                  "data": {
+                    "type":"vars",
+                    "attributes": {
+                      "key":"project_id",
+                      "value":"${{ github.event.repository.name }}",
+                      "description":"project id",
+                      "category":"terraform",
+                      "hcl":false,
+                      "sensitive":false
+                    },
+                    "relationships": {
+                      "workspace": {
+                        "data": {
+                          "id":"${{ steps.create_workspace.outputs.workspace_id }}",
+                          "type":"workspaces"
+                        }
+                      }
+                    }
+                  }
+                }
+                EOF
+                curl \
+                --header "Authorization: Bearer ${{ secrets.TFE_TOKEN }}" \
+                --header "Content-Type: application/vnd.api+json" \
+                --request POST \
+                --data @payload.json \
+                https://app.terraform.io/api/v2/vars
+
+    - uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.1.1
+      id: upload
+      with:
+              workspace: ${{ github.event.repository.name }}
+              directory: release
+
+    - name: Create Apply Run
+      uses: hashicorp/tfc-workflows-github/actions/create-run@v1.1.1
+      id: apply-run
+      if: success() || failure()
+      with:
+        workspace: ${{ github.event.repository.name }}
+        configuration_version: ${{ steps.upload.outputs.configuration_version_id }}
+        plan_only: false
