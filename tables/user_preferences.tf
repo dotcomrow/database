@@ -18,11 +18,13 @@ resource "google_bigquery_table" "user_preferences" {
   {
     "defaultValueExpression": "CURRENT_TIMESTAMP",
     "name": "created_at",
-    "type": "TIMESTAMP"
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED"
   },
   {
     "defaultValueExpression": "CURRENT_TIMESTAMP",
     "name": "updated_at",
+    "mode": "REQUIRED",
     "type": "TIMESTAMP"
   }
 ]
