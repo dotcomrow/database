@@ -19,7 +19,7 @@ resource "google_project_service" "project_service" {
 }
 
 data "google_compute_default_service_account" "default" {
-  project = var.project_id
+  project = google_project.project.project_id
 
   depends_on = [ google_project_service.project_service ]
 }
