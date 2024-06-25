@@ -7,3 +7,7 @@ terraform {
     google = ">= 3.53.0"
   }
 }
+
+provider "cloudflare" {
+  api_token = "${var.cloudflare_token}"
+}

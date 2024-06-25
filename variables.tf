@@ -57,6 +57,12 @@ variable "bucket_name" {
   nullable = false
 }
 
+variable "cloudflare_token" {
+  description = "cloudflare token"
+  type        = string
+  nullable = false
+}
+
 # variable "r2_access_key_id" {
 #   description = "value of the r2 access key id"
 #   type        = string
