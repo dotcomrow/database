@@ -2,14 +2,14 @@ resource "google_bigquery_dataset" "database" {
   dataset_id  = "${var.project_name}_dataset"
   description = "Dataset for ${var.project_name} project"
   location    = "US"
-  project     = var.project_id
+  project     = google_project.project.project_id
 
   depends_on = [google_project_service.project_service, data.google_compute_default_service_account.default]
 }
 
 module "schemas" {
   source     = "./tables"
-  project_id = var.project_id
+  project_id = google_project.project.project_id
   dataset_id = google_bigquery_dataset.database.dataset_id
 
   depends_on = [google_bigquery_dataset.database]
