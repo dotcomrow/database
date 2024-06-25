@@ -4,7 +4,7 @@ resource "google_bigquery_dataset" "database" {
   location    = "US"
   project     = var.project_id
 
-  depends_on = [google_project_service.project_service, google_compute_default_service_account.default]
+  depends_on = [google_project_service.project_service, data.google_compute_default_service_account.default]
 }
 
 module "schemas" {
