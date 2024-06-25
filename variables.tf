@@ -14,15 +14,15 @@ variable "apis" {
   description = "The list of apis to enable"  
   type        = list(string)
   default     = [
-    # "iam.googleapis.com", 
-    # "cloudresourcemanager.googleapis.com", 
-    # "bigquery.googleapis.com",
-    # "bigquerystorage.googleapis.com",
-    # "cloudbilling.googleapis.com",
-    # "run.googleapis.com",
-    # "artifactregistry.googleapis.com",
-    # "containerregistry.googleapis.com",
-    # "compute.googleapis.com",
+    "iam.googleapis.com", 
+    "cloudresourcemanager.googleapis.com", 
+    "bigquery.googleapis.com",
+    "bigquerystorage.googleapis.com",
+    "cloudbilling.googleapis.com",
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "containerregistry.googleapis.com",
+    "compute.googleapis.com",
     "bigquerydatatransfer.googleapis.com"
   ]
 }
