@@ -17,6 +17,11 @@ resource "google_bigquery_table" "aliexpress_search_results" {
   },
   {
     "mode": "REQUIRED",
+    "name": "search_result_id",
+    "type": "STRING"
+  },
+  {
+    "mode": "REQUIRED",
     "name": "result_entry",
     "type": "JSON"
   },
